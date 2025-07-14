@@ -2,16 +2,10 @@
 venv/
 backend/venv/
 
-# Ignore Python cache files
+# Python build
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
 
-# Ignore downloads
+# Downloads
 downloads/
 backend/downloads/
-
-# Ignore system files
-.DS_Store
-Thumbs.db
