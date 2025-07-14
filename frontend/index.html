@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Downloader</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 520px;
+      overflow-y: auto;
+    }
+    h2 {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    label {
+      font-weight: 600;
+      margin-top: 15px;
+      display: block;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #007BFF;
+      color: white;
+      font-weight: bold;
+      margin-top: 15px;
+      cursor: pointer;
+      border: none;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #status, #preview {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #333;
+    }
+    #preview img {
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    .download-link {
+      color: blue;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>YouTube Downloader</h2>
+
+    <label for="urlInput">YouTube Video URL</label>
+    <input type="text" id="urlInput" placeholder="Paste YouTube link here" oninput="autoPreview()" />
+
+    <div id="preview"></div>
+
+    <label for="modeSelect">Download Mode</label>
+    <select id="modeSelect">
+      <option value="single">Single Video</option>
+      <option value="playlist">Entire Playlist</option>
+    </select>
+
+    <label>Download Options</label>
+    <div>
+      <input type="checkbox" id="mp4Option" value="mp4" checked onclick="toggleQualityOptions()" />
+      <label for="mp4Option">Video (MP4 with Audio)</label><br/>
+      <input type="checkbox" id="videoOnlyOption" value="videoonly" onclick="toggleQualityOptions()" />
+      <label for="videoOnlyOption">Video Only (No Audio)</label><br/>
+      <input type="checkbox" id="mp3Option" value="mp3" onclick="toggleQualityOptions()" />
+      <label for="mp3Option">Audio (MP3)</label>
+    </div>
+
+    <div id="videoQualityDiv">
+      <label for="videoQuality">Video Quality</label>
+      <select id="videoQuality">
+        <option value="best">Best Available</option>
+        <option value="1080">1080p</option>
+        <option value="720">720p</option>
+        <option value="480">480p</option>
+        <option value="360">360p</option>
+      </select>
+    </div>
+
+    <div id="audioQualityDiv" style="display: none;">
+      <label for="audioQuality">Audio Quality</label>
+      <select id="audioQuality">
+        <option value="best">Best Available</option>
+        <option value="192">192kbps</option>
+        <option value="128">128kbps</option>
+        <option value="96">96kbps</option>
+      </select>
+    </div>
+
+    <button onclick="download()">⬇️ Start Download</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    function toggleQualityOptions() {
+      const showVideo = document.getElementById("mp4Option").checked || document.getElementById("videoOnlyOption").checked;
+      const showAudio = document.getElementById("mp3Option").checked;
+
+      document.getElementById("videoQualityDiv").style.display = showVideo ? "block" : "none";
+      document.getElementById("audioQualityDiv").style.display = showAudio ? "block" : "none";
+    }
+
+    let previewTimeout;
+    function autoPreview() {
+      clearTimeout(previewTimeout);
+      previewTimeout = setTimeout(() => preview(), 1000); // Wait 1s after typing
+    }
+
+    async function preview() {
+      const url = document.getElementById("urlInput").value;
+      const previewBox = document.getElementById("preview");
+      if (!url || !url.includes("youtube")) return;
+
+      previewBox.innerHTML = "🔍 Fetching preview...";
+
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/preview?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+
+        previewBox.innerHTML = `
+          <b>🎬 ${data.title}</b><br/>
+          ⏱️ ${data.duration} | 📺 ${data.channel}<br/>
+          <img src="${data.thumbnail}" alt="Thumbnail" />
+        `;
+      } catch {
+        previewBox.innerHTML = "❌ Failed to fetch preview.";
+      }
+    }
+
+    async function download() {
+      const url = document.getElementById("urlInput").value;
+      const mode = document.getElementById("modeSelect").value;
+      const status = document.getElementById("status");
+
+      if (!url) {
+        status.textContent = "❌ Please enter a YouTube URL.";
+        return;
+      }
+
+      const formats = [];
+      const videoQuality = document.getElementById("videoQuality").value;
+      const audioQuality = document.getElementById("audioQuality").value;
+
+      if (document.getElementById("mp4Option").checked)
+        formats.push(`mp4_${videoQuality}`);
+      if (document.getElementById("videoOnlyOption").checked)
+        formats.push(`videoonly_${videoQuality}`);
+      if (document.getElementById("mp3Option").checked)
+        formats.push(`mp3_${audioQuality}`);
+
+      if (formats.length === 0) {
+        status.textContent = "❌ Please select at least one format.";
+        return;
+      }
+
+      status.innerHTML = "⏳ Downloading...<br/>";
+
+      for (const format of formats) {
+        try {
+          const res = await fetch(`http://127.0.0.1:8000/download?url=${encodeURIComponent(url)}&format=${format}&mode=${mode}`);
+          const data = await res.json();
+          status.innerHTML += `✅ ${format}: <a href="${data.url}" class="download-link" download>Download</a><br/>`;
+        } catch (err) {
+          status.innerHTML += `❌ Failed: ${format}<br/>`;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
